@@ -13,11 +13,11 @@ depth = np.tile((np.arange(0,w))/w,(1,h,1))
 canvas = scene.SceneCanvas(bgcolor='black', size=(w*3, h*3))
 view = canvas.central_widget.add_view()
 
-view.camera = 'perspective'
-view.camera.fov = 60
+view.vertual_camera = 'perspective'
+view.vertual_camera.fov = 60
 
-print(view.camera, type(view.camera))
-tr = view.camera.transform
+print(view.vertual_camera, type(view.vertual_camera))
+tr = view.vertual_camera.transform
 
 vertice = []
 faces = []
@@ -56,7 +56,7 @@ view.add(mesh)
 
 tr.translate([0,0,0])
 tr.rotate(axis=[1,0,0],angle=180)
-view.camera.view_changed()
+view.vertual_camera.view_changed()
 img = canvas.render()
 
 plt.imshow(img)

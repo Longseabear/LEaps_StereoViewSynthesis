@@ -5,7 +5,7 @@ import utils.geometry as geometry_helper
 def get_neighbors(mesh, node):
     return [*mesh.neighbors(node)]
 
-def generate_face(mesh, depth_threshold=None):
+def generate_face(mesh, disp_threshold=None):
     """
     Convert points to faces.
 
@@ -20,7 +20,7 @@ def generate_face(mesh, depth_threshold=None):
     faces = []
     nodes = mesh.nodes
 
-    valid_disp_fn = lambda zs: True if depth_threshold is None else all([abs(zs[i]-zs[(i+1)%3]) < depth_threshold for i in range(3)])
+    valid_disp_fn = lambda zs: True if disp_threshold is None else all([abs(zs[i]-zs[(i+1)%3]) < disp_threshold for i in range(3)])
 
     for yxz in nodes:
         cur_id = nodes[yxz]['vertex_id']
@@ -46,7 +46,7 @@ def generate_face(mesh, depth_threshold=None):
     return faces
 
 
-def mesh_to_render_points(mesh, K, inv_K):
+def mesh_to_render_points(mesh, K, inv_K, disp_threshold=None):
     nodes = mesh.nodes
     nodes_points = []
     nodes_colors = []
@@ -60,16 +60,15 @@ def mesh_to_render_points(mesh, K, inv_K):
         nodes[yxz]['vertex_id'] = vertex_id
         vertex_id+=1
 
-    faces_point = generate_face(mesh)
+    faces_point = generate_face(mesh, disp_threshold)
 
     return nodes_points, nodes_colors, faces_point
-
 
 def init_mesh(ldi, image, disp, base_line=1):
     """
     Initialize the mesh based on the image and disparity.
 
-    @param mesh: Networkx graph
+    @param ldi: Networkx graph
     @param image: image [H,W,3]
     @param disp: disparity [H,W,1]
     @param base_line: two camera base line length. default: 1
@@ -77,7 +76,7 @@ def init_mesh(ldi, image, disp, base_line=1):
     @return: mesh
     """
     h, w = ldi.mesh.graph['H'], ldi.mesh.graph['W']
-    depth = (ldi.camera.focal_length_pix * base_line) / disp
+    depth = (ldi.vertual_camera.focal_length_pix * base_line) / disp
     for y in range(h):
         for x in range(w):
             ldi.mesh.add_node((y, x, -depth[y, x]),
@@ -88,4 +87,40 @@ def init_mesh(ldi, image, disp, base_line=1):
         two_nes = [ne for ne in [(y + 1, x), (y, x + 1)] if
                    ne[0] < h and ne[1] < w]
         [ldi.mesh.add_edge((ne[0], ne[1], ldi.z_buffer[ne][0]), (y, x, d)) for ne in two_nes]
+    return ldi.mesh
+
+def merge_mesh(ldi, image, disp, base_line=1):
+    """
+    merge the mesh based on the image and disparity using forward warping.
+    This method uses disparity as it is. You must check the sign of disparity.
+    ex) if right->left, disparity is positive, opposite is negative
+
+    @param ldi: Networkx graph
+    @param image: image [H,W,3]
+    @param disp: disparity [H,W,1] right -> virtual camera view (forward)
+    @param base_line: two camera base line length. default: 1
+
+    @return: mesh
+    """
+    h, w = ldi.mesh.graph['H'], ldi.mesh.graph['W']
+    depth = (ldi.vertual_camera.focal_length_pix * base_line) / disp
+
+    yy, xx = np.meshgrid(range(10), range(100), indexing='ij')  # w h
+    next_idx = np.stack([yy, xx], axis=-1)
+
+    for y in range(h):
+        for x in range(w):
+            dy, dx = next_idx[y,x]
+            rd_dy, rd_dx = round(dy), round(dx)
+
+            ldi.mesh.add_node((y, x, -depth[y, x]),
+                               disp=disp[y, x],
+                               color=image[y, x])
+            ldi.z_buffer[(y, x)] = [-depth[y, x]]
+
+    for y, x, d, in ldi.mesh.nodes:
+        two_nes = [ne for ne in [(y + 1, x), (y, x + 1)] if
+                   ne[0] < h and ne[1] < w]
+        [ldi.mesh.add_edge((ne[0], ne[1], ldi.z_buffer[ne][0]), (y, x, d)) for ne in two_nes]
+
     return ldi.mesh

@@ -65,34 +65,26 @@ def default_loader(path):
 def disparity_loader(path):
     return readPFM(path)
 
-
-class sceneflow_camera():
-    def __init__(self, name, R, T, scale=1):
-        self.name = name
-
-        self.R = R
-        self.T = T
-        self.extrinsic_param = geometry_helper.Rt_matrix(R,T)
-        self.focal_length_mm = 35.0
-        self.pixel_mm = 0.03333333
-        self.sensor_size_mm = (32.00,18.00) # width, height
-
-    def get_Rt(self):
-        return self.R, self.T
-
-
-class sceneflow_dataset():
-    def __init__(self, data_list, scale):
+class sceneflow_cameras():
+    def __init__(self, config):
         self.intrinsic_parameter = np.array([[1050.0, 0, 479.5], [0, 1050.0, 269.5], [0, 0, 1]]).astype(np.float32)
         self.intrinsic_parameter_inv = np.linalg.inv(self.intrinsic_parameter)
 
-        self.left_camera = sceneflow_camera("Camera:Left", np.eye(3), np.array([[0,0,0]]).transpose(), scale)
-        self.right_camera = sceneflow_camera("Camera:Right", np.eye(3), np.array([[1,0,0]]).transpose(), scale)
+        self.left_camera = camera_helper.Camera("Camera:Left", np.eye(3), np.array([[0,0,0]]).transpose(), config['scale'])
+        self.right_camera = camera_helper.Camera("Camera:Right", np.eye(3), np.array([[1,0,0]]).transpose(), config['scale'])
+
+        self.focal_length_mm = 35.0
+        self.pixel_mm = 0.03333333
+        self.sensor_size_mm = (32.00,18.00) # width, height
+        self.baseline_mm = 1
+
+class sceneflow_dataloader():
+    def __init__(self, data_list):
         self.data_list = data_list
 
     @staticmethod
-    def read_stereo(left_path, right_path, disp_path):
-        return default_loader(left_path), default_loader(right_path), sceneflow_dataset.read_disparity(disp_path)
+    def read_stereo(left_path, right_path, left_disp_path, right_disp_path):
+        return default_loader(left_path), default_loader(right_path), sceneflow_dataloader.read_disparity(left_disp_path), sceneflow_dataloader.read_disparity(right_disp_path)
 
     @staticmethod
     def read_disparity(path):
@@ -102,7 +94,7 @@ class sceneflow_dataset():
 
     @staticmethod
     def read_depth(disp_fi, disp_rescale=10., h=None, w=None):
-        disp = sceneflow_dataset.read_disparity(disp_fi)
+        disp = sceneflow_dataloader.read_disparity(disp_fi)
         disp = disp - disp.min()  # 0~disp(max)
         disp = cv2.blur(disp / disp.max(), ksize=(3, 3)) * disp.max()
         disp = (disp / disp.max()) * disp_rescale  # 0~disp_rescsale

@@ -1,8 +1,14 @@
-test1:
-  test1_1: 5
-  test1_2: 6
-  test1_3:
-    test1_4: 6
-    test1_5: 7
-    test_str: ['afafaf']
+LDI:
+  type: 'stereo'
+  size: [540, 960]
+  rendering_size: [540, 960]
+  camera:
+    camera_module: 'dataloader.sceneflow_dataloader'
+    camera_class: 'sceneflow_cameras'
+    scale: 1
+  virtual_camera:
+    T: null
+    R: null
 
+# ALGORITHM
+disp_threshold: 2.5
