@@ -53,6 +53,12 @@ class VirtualCamera():
 
 class LDI():
     @staticmethod
+    def merge_two_ldi(config, lid_1, lid_2):
+        ldi = LDI.make_LDI_from_config(config)
+        ldi.mesh = networkx.compose(lid_1.mesh, lid_2.mesh)
+        return ldi
+
+    @staticmethod
     def make_LDI_from_config(config):
         ldi = LDI()
         ldi.config = config
@@ -63,34 +69,43 @@ class LDI():
         _, ldi.dataset_camera = get_instance_from_name(config.camera.camera_module,
                                                     config.camera.camera_class,
                                                     config.camera)
-        ldi.vertual_camera = VirtualCamera(rendering_size, K=ldi.dataset_camera.intrinsic_parameter, R=np.eye(3), T=np.array([[0],[0],[0]]))
+        ldi.virtual_camera = VirtualCamera(rendering_size, K=ldi.dataset_camera.intrinsic_parameter, R=np.eye(3), T=np.array([[0], [0], [0]]))
+        ldi.pixel_layer_nums = np.zeros(size).astype(np.long)
         return ldi
 
     def __init__(self):
         self.config = None
         self.mesh = None
         self.info_pixel = {}
-        self.z_buffer = {}
+        self.pixel_layer_nums = None
         self.dataset_camera = None
-        self.vertual_camera = None
+        self.virtual_camera = None
+
+    def merge_mesh_from_image(self, img, disp, threshold):
+       self.mesh = mesh_helper.merge_mesh(self,img,disp,threshold)
+
+    def disunite_discontinuities(self, threshold):
+        self.mesh = mesh_helper.disunite_discontinuities(self, threshold)
 
     def set_mesh_from_image(self, image, disp):
         self.mesh = mesh_helper.init_mesh(self, image, disp, self.dataset_camera.baseline_mm)
 
     def get_inv_K(self):
-        return np.linalg.inv(self.vertual_camera.K)
+        return np.linalg.inv(self.virtual_camera.K)
 
     def get_K(self):
-        return self.vertual_camera.K
+        return self.virtual_camera.K
 
-    def merge_mesh_from_image(self, image, disp):
-        temp_mesh = mesh_helper.init_mesh(self, image, disp, self.dataset_camera.baseline_mm)
-
-    def set_render_infos(self, disp_threshold=None):
+    def set_render_infos(self, mesh_b=None):
         """
         Set vertices, faces and colors.
         """
-        vertices, colors, faces = mesh_helper.mesh_to_render_points(self.mesh, self.get_K(), self.get_inv_K(), disp_threshold)
+
+        if mesh_b is not None:
+            vertices, colors, faces = mesh_helper.mesh_to_render_points_for_stereo(self.mesh, mesh_b, self.get_K(),
+                                 self.get_inv_K())
+        else:
+            vertices, colors, faces = mesh_helper.mesh_to_render_points(self.mesh, self.get_K(), self.get_inv_K())
 
         vertice = np.array(vertices).astype(np.float32)
         colors = np.array(colors).astype(np.float32)
@@ -99,12 +114,12 @@ class LDI():
         mesh = visuals.Mesh(shading=None)
         mesh.set_data(vertices=vertice, faces=faces, vertex_colors=colors)
         mesh.attach(Alpha(1.0))
-        self.vertual_camera.view.add(mesh)
+        self.virtual_camera.view.add(mesh)
 
     def render(self, R, T):
         axis, angle = geometry_helper.extrinsic_matrix_to_axis_angle(R)
-        self.vertual_camera.translate(T.transpose())
-        self.vertual_camera.rotate(axis, angle)
-        self.vertual_camera.view_changed()
+        self.virtual_camera.rotate(axis, angle)
+        self.virtual_camera.translate(T.transpose())
+        self.virtual_camera.view_changed()
 
-        return self.vertual_camera.canvas.render()
+        return self.virtual_camera.canvas.render()

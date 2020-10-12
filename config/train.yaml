@@ -12,3 +12,5 @@ LDI:
 
 # ALGORITHM
 disp_threshold: 2.5
+camera_path: [[1,0],[1,1],[0,1],[0,0]]
+
