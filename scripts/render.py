@@ -11,13 +11,20 @@ h,w = img.shape[:2]
 depth = np.tile((np.arange(0,w))/w,(1,h,1))
 
 canvas = scene.SceneCanvas(bgcolor='black', size=(w*3, h*3))
+grid = canvas.central_widget.add_grid()
+
 view = canvas.central_widget.add_view()
+left_view = grid.add_view(name='left_view', border_color='yellow')
 
-view.virtual_camera = 'perspective'
-view.virtual_camera.fov = 60
+temp_mesh = visuals.Mesh()
+canvas.scene.add(temp_mesh)
+#grid.add(temp_mesh)
+input()
+view.camera = 'perspective'
+view.camera.fov = 60
 
-print(view.virtual_camera, type(view.virtual_camera))
-tr = view.virtual_camera.transform
+print(view.camera, type(view.camera))
+tr = view.camera.transform
 
 vertice = []
 faces = []
@@ -27,7 +34,7 @@ is_inside = lambda y,x: (y>=0 and y<h and x>=0 and x<w)
 four_neighbor = lambda y,x: [(y+1,x),(y,x-1),(y-1,x),(y,x+1)]
 valid_neighbor = lambda y,x: [(ny,nx) for ny,nx in four_neighbor(y,x) if is_inside(ny,nx)]
 pos2idx = lambda y,x: y*w+x
-#
+
 def make_faces(y,x):
     faces = []
     points = four_neighbor(y,x)
@@ -40,7 +47,7 @@ def make_faces(y,x):
 
 for i in range(h):
     for j in range(w):
-        vertice.append([j/w,i/h,10]) #depth[0,i,j]
+        vertice.append([j/w,i/h,3])
         colors.append(img[i,j,:]/255)
         faces += make_faces(i,j)
 vertice = np.stack(vertice,axis=0)
@@ -53,10 +60,11 @@ mesh = visuals.Mesh(shading=None)
 mesh.set_data(vertices=vertice, faces=faces, vertex_colors=colors)
 mesh.attach(Alpha(1.0))
 view.add(mesh)
+view.add(mesh)
 
 tr.translate([0,0,0])
 tr.rotate(axis=[1,0,0],angle=180)
-view.virtual_camera.view_changed()
+view.camera.view_changed()
 img = canvas.render()
 
 plt.imshow(img)

@@ -1,7 +1,7 @@
 LDI:
   type: 'stereo'
   size: [540, 960]
-  rendering_size: [540, 960]
+  rendering_size: [420, 840]
   camera:
     camera_module: 'dataloader.sceneflow_dataloader'
     camera_class: 'sceneflow_cameras'
